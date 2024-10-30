@@ -1,8 +1,8 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import HomeScreen from './HomeScreen'; // Asegúrate de que la ruta sea correcta
-import GameScreen from './GameScreen'; // Crea este componente para la pantalla del juego
+import HomeScreen from './components/Screens/HomeScreen'; // Asegúrate de que la ruta sea correcta
+import GameScreen from './components/Screens/GameScreen'; // Crea este componente para la pantalla del juego
 
 const Stack = createStackNavigator();
 
@@ -18,7 +18,7 @@ const App = () => {
         <Stack.Screen 
           name="Game" 
           component={GameScreen} 
-          options={{ title: 'Juego' }} // Título para la pantalla del juego
+          options={{ title: 'Juego',headerShown:false}} // Título para la pantalla del juego
         />
       </Stack.Navigator>
     </NavigationContainer>
