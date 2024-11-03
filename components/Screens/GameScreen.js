@@ -9,9 +9,9 @@ import { collection, getDocs } from 'firebase/firestore'; // Importa Firestore
 const GameScreen = () => {
   const navigation = useNavigation();
   const [questionsData, setQuestionsData] = useState([]);
-
+  
   const [score, setScore] = useState(0);
-  const [questionNumber, setQuestionNumber] = useState(1); // Ejemplo de número de pregunta
+  const [questionNumber, setQuestionNumber] = useState(0); // Ejemplo de número de pregunta
   const [totalQuestions, setTotalQuestions] = useState(10); // Total de preguntas
   const [markerCoords, setMarkerCoords] = useState(null); // Coordenadas del marcador
   const [distance, setDistance] = useState(null); // Distancia entre los puntos
@@ -21,11 +21,20 @@ const GameScreen = () => {
   const [checkButtonTrigger,setCheckButtonTrigger]=useState(true);
 
   // Coordenadas hardcodeadas para el punto objetivo
-  const targetCoords = { latitude: 41.3851, longitude: 2.1734 }; // Ejemplo: Barcelona
+  //const targetCoords = { latitude: 41.3851, longitude: 2.1734 }; // Ejemplo: Barcelona
+  
+  const getQuestionCoords = () => {
+    return questionsData[questionNumber]?.loc;
+  };
+  const [targetCoords, setTargetCoords] = useState(getQuestionCoords());
 
   const handleCheckPress = () => {
     if (markerCoords) {
       // Calcular la distancia usando la fórmula de Haversine
+      console.log("puta");
+      console.log(targetCoords);//nada
+      console.log(markerCoords);
+      console.log(getQuestionCoords());
       const calculatedDistance = haversine(markerCoords, targetCoords, { unit: 'meter' });
       setShowMarker(true);
       setDistance(calculatedDistance);
@@ -55,6 +64,8 @@ const GameScreen = () => {
     setCheckButtonTrigger(true);
     setExitButton(false);
     setNextButton(false);
+    setShowMarker(false);
+
   };
 
   useEffect(() => {
@@ -64,6 +75,7 @@ const GameScreen = () => {
         const snapshot = await getDocs(questionsCollection);
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setQuestionsData(data);
+        setTotalQuestions(data.length);
         console.log(data);
       } catch (error) {
         console.error("Error fetching data from Firestore: ", error);
@@ -71,19 +83,22 @@ const GameScreen = () => {
     };
 
     fetchData();
+    
   }, []);
 
-
+  useEffect(() => {
+    setTargetCoords(getQuestionCoords());
+  });
 
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>GeoGuessr</Text>
-      <Text style={styles.progress}>{questionNumber}/{totalQuestions}</Text>
+      <Text style={styles.progress}>{questionNumber+1}/{totalQuestions}</Text>
       
         <MapView
         style={styles.map}
-        mapType="satellite" // Cambia el tipo de mapa a satélite
+        mapType="satellite"
         initialRegion={{
           latitude: 41.7282,
           longitude: 1.8236,
@@ -101,11 +116,10 @@ const GameScreen = () => {
           <Marker coordinate={markerCoords} pinColor="red" />
         )}
 
-        {/* Línea entre los dos marcadores si ambos existen */}
         {showmarker && (
           <Polyline
             coordinates={[targetCoords, markerCoords]}
-            strokeColor="#32CD32" // Color de la línea (verde)
+            strokeColor="#32CD32"
             strokeWidth={2}
           />
         )}
