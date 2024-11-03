@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect,useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import haversine from 'haversine';
 import { useNavigation } from '@react-navigation/native';
+import { db } from '../../utils/firebaseConfig'; // Importa la configuración de Firebase
+import { collection, getDocs } from 'firebase/firestore'; // Importa Firestore
 
 const GameScreen = () => {
-   const navigation = useNavigation();
+  const navigation = useNavigation();
+  const [questionsData, setQuestionsData] = useState([]);
 
   const [score, setScore] = useState(0);
   const [questionNumber, setQuestionNumber] = useState(1); // Ejemplo de número de pregunta
@@ -53,6 +56,25 @@ const GameScreen = () => {
     setExitButton(false);
     setNextButton(false);
   };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const questionsCollection = collection(db, 'quests'); // Cambia 'questions' al nombre de tu colección
+        const snapshot = await getDocs(questionsCollection);
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setQuestionsData(data);
+        console.log(data);
+      } catch (error) {
+        console.error("Error fetching data from Firestore: ", error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+
+
 
   return (
     <View style={styles.container}>
