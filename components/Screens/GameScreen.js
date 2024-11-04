@@ -9,24 +9,26 @@ import { collection, getDocs } from 'firebase/firestore'; // Importa Firestore
 const GameScreen = () => {
   const navigation = useNavigation();
   const [questionsData, setQuestionsData] = useState([]);
-  
+
   const [score, setScore] = useState(0);
-  const [questionNumber, setQuestionNumber] = useState(0); // Ejemplo de número de pregunta
-  const [totalQuestions, setTotalQuestions] = useState(10); // Total de preguntas
+  const [questionNumber, setQuestionNumber] = useState(0); // Número de pregunta
+  const [totalQuestions, setTotalQuestions] = useState(0); // Total de preguntas
   const [markerCoords, setMarkerCoords] = useState(null); // Coordenadas del marcador
   const [distance, setDistance] = useState(null); // Distancia entre los puntos
   const [showmarker,setShowMarker]=useState(false); //El usuario ya ha marcado el punto 1
   const [nextButton,setNextButton]=useState(false);
   const [exitButton,setExitButton]=useState(false);
   const [checkButtonTrigger,setCheckButtonTrigger]=useState(true);
+  const [targetCoords, setTargetCoords] = useState(null);
 
   // Coordenadas hardcodeadas para el punto objetivo
   //const targetCoords = { latitude: 41.3851, longitude: 2.1734 }; // Ejemplo: Barcelona
   
-  const getQuestionCoords = () => {
-    return questionsData[questionNumber]?.loc;
+
+  const getPreguntaActual = () => {
+    return questionsData[questionNumber]?.pregunta;
   };
-  const [targetCoords, setTargetCoords] = useState(getQuestionCoords());
+  
 
   const handleCheckPress = () => {
     if (markerCoords) {
@@ -34,7 +36,8 @@ const GameScreen = () => {
       console.log("puta");
       console.log(targetCoords);//nada
       console.log(markerCoords);
-      console.log(getQuestionCoords());
+      
+
       const calculatedDistance = haversine(markerCoords, targetCoords, { unit: 'meter' });
       setShowMarker(true);
       setDistance(calculatedDistance);
@@ -65,7 +68,9 @@ const GameScreen = () => {
     setExitButton(false);
     setNextButton(false);
     setShowMarker(false);
-
+    setQuestionNumber(questionNumber+1);
+    console.log(questionNumber);
+    setTargetCoords( questionsData[questionNumber]?.loc);
   };
 
   useEffect(() => {
@@ -76,7 +81,8 @@ const GameScreen = () => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setQuestionsData(data);
         setTotalQuestions(data.length);
-        console.log(data);
+        console.log(JSON.stringify(data));
+        setTargetCoords( data[questionNumber]?.loc);
       } catch (error) {
         console.error("Error fetching data from Firestore: ", error);
       }
@@ -86,15 +92,11 @@ const GameScreen = () => {
     
   }, []);
 
-  useEffect(() => {
-    setTargetCoords(getQuestionCoords());
-  });
-
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>GeoGuessr</Text>
-      <Text style={styles.progress}>{questionNumber+1}/{totalQuestions}</Text>
+     <Text style={styles.title}>GeoGuessr</Text>
+     <Text style={styles.progress}>{questionNumber+1}/{totalQuestions}</Text>
       
         <MapView
         style={styles.map}
@@ -108,7 +110,7 @@ const GameScreen = () => {
         onPress={handleMapPress}
         >
         {showmarker &&(
-          <Marker coordinate={targetCoords} pinColor="green" />
+          <Marker coordinate={{latitude:targetCoords.latitude, longitude:targetCoords.longitude}} pinColor="green" />
         )}
         
         
@@ -118,14 +120,14 @@ const GameScreen = () => {
 
         {showmarker && (
           <Polyline
-            coordinates={[targetCoords, markerCoords]}
+            coordinates={[{latitude:targetCoords.latitude, longitude:targetCoords.longitude}, markerCoords]}
             strokeColor="#32CD32"
             strokeWidth={2}
           />
         )}
       </MapView>
-
       <Text style={styles.question}>On està Barcelona?</Text>
+     
 
       <View style={styles.buttonsrow}>
       
@@ -154,8 +156,6 @@ const GameScreen = () => {
           El objetivo está a una distancia de {Math.round(distance)} metros
         </Text>
       )}
-
-      <Text style={styles.score}>Actual Score: {score}m</Text>
     </View>
   );
 };
