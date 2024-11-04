@@ -33,11 +33,6 @@ const GameScreen = () => {
   const handleCheckPress = () => {
     if (markerCoords) {
       // Calcular la distancia usando la fórmula de Haversine
-      console.log("puta");
-      console.log(targetCoords);//nada
-      console.log(markerCoords);
-      
-
       const calculatedDistance = haversine(markerCoords, targetCoords, { unit: 'meter' });
       setShowMarker(true);
       setDistance(calculatedDistance);
@@ -45,6 +40,7 @@ const GameScreen = () => {
       setCheckButtonTrigger(false);
       setNextButton(true);
       setExitButton(true);
+      //setQuestionNumber(questionNumber+1);
     } else {
       //alert("Coloca un marcador en el mapa antes de verificar.");
     }
@@ -58,8 +54,11 @@ const GameScreen = () => {
 
   const handleMapPress = (event) => {
     // Actualiza las coordenadas del marcador con la ubicación donde se pulsó el mapa
-    const { latitude, longitude } = event.nativeEvent.coordinate;
-    setMarkerCoords({ latitude, longitude });
+    if(checkButtonTrigger){
+      const { latitude, longitude } = event.nativeEvent.coordinate;
+      setMarkerCoords({ latitude, longitude });
+    }
+    
   };
 
   const handleNextButtonPress = () =>{
@@ -70,7 +69,15 @@ const GameScreen = () => {
     setShowMarker(false);
     setQuestionNumber(questionNumber+1);
     console.log(questionNumber);
-    setTargetCoords( questionsData[questionNumber]?.loc);
+    setTargetCoords(questionsData[questionNumber+1]?.loc);
+    setScore(score+distance);
+    setMarkerCoords(null);
+    if((questionNumber+1)===questionsData.length){
+      goToScoreScreen();
+    }
+  };
+  const goToScoreScreen = () =>{
+    navigation.navigate('Score',{score,distance}); // Navega a la pantalla de inicio
   };
 
   useEffect(() => {
@@ -81,13 +88,12 @@ const GameScreen = () => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setQuestionsData(data);
         setTotalQuestions(data.length);
-        console.log(JSON.stringify(data));
+        //console.log(JSON.stringify(data));
         setTargetCoords( data[questionNumber]?.loc);
       } catch (error) {
         console.error("Error fetching data from Firestore: ", error);
       }
     };
-
     fetchData();
     
   }, []);
@@ -126,7 +132,7 @@ const GameScreen = () => {
           />
         )}
       </MapView>
-      <Text style={styles.question}>On està Barcelona?</Text>
+      <Text style={styles.question}>{questionsData[questionNumber]?.pregunta}</Text>
      
 
       <View style={styles.buttonsrow}>
@@ -153,9 +159,12 @@ const GameScreen = () => {
 
       {distance && (
         <Text style={styles.distanceText}>
-          El objetivo está a una distancia de {Math.round(distance)} metros
+          L'objectiu esta a una distancia de {Math.round(distance)} metres
         </Text>
       )}
+      <Text style={styles.score}>
+          Score: {score.toFixed(0)}
+      </Text>
     </View>
   );
 };
@@ -239,7 +248,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     marginTop: 50,
-    marginRight:200,
+    marginLeft:-175,
   },
 });
 
