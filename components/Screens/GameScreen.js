@@ -1,110 +1,124 @@
-import React, { useEffect,useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import haversine from 'haversine';
 import { useNavigation } from '@react-navigation/native';
-import { db } from '../../utils/firebaseConfig'; // Importa la configuración de Firebase
-import { collection, getDocs } from 'firebase/firestore'; // Importa Firestore
+import { db } from '../../utils/firebaseConfig';
+import { collection, getDocs, addDoc } from 'firebase/firestore';
 
-const GameScreen = () => {
+const GameScreen = ({ route }) => {
   const navigation = useNavigation();
+  const { userName } = route.params; // Obtener el nombre del usuario desde los parámetros de navegación
   const [questionsData, setQuestionsData] = useState([]);
-
   const [score, setScore] = useState(0);
-  const [questionNumber, setQuestionNumber] = useState(0); // Número de pregunta
-  const [totalQuestions, setTotalQuestions] = useState(0); // Total de preguntas
-  const [markerCoords, setMarkerCoords] = useState(null); // Coordenadas del marcador
-  const [distance, setDistance] = useState(null); // Distancia entre los puntos
-  const [showmarker,setShowMarker]=useState(false); //El usuario ya ha marcado el punto 1
-  const [nextButton,setNextButton]=useState(false);
-  const [exitButton,setExitButton]=useState(false);
-  const [checkButtonTrigger,setCheckButtonTrigger]=useState(true);
+  const [displayedScore, setDisplayedScore] = useState(0); // Estado para el puntaje visual
+  const [questionNumber, setQuestionNumber] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [markerCoords, setMarkerCoords] = useState(null);
+  const [distance, setDistance] = useState(null);
+  const [showmarker, setShowMarker] = useState(false);
+  const [nextButton, setNextButton] = useState(false);
+  const [exitButton, setExitButton] = useState(false);
+  const [checkButtonTrigger, setCheckButtonTrigger] = useState(true);
   const [targetCoords, setTargetCoords] = useState(null);
-
-  // Coordenadas hardcodeadas para el punto objetivo
-  //const targetCoords = { latitude: 41.3851, longitude: 2.1734 }; // Ejemplo: Barcelona
-  
-
-  const getPreguntaActual = () => {
-    return questionsData[questionNumber]?.pregunta;
-  };
-  
+  const [region, setRegion] = useState(null); // Nueva variable de estado para manejar la región del mapa
 
   const handleCheckPress = () => {
     if (markerCoords) {
-      // Calcular la distancia usando la fórmula de Haversine
       const calculatedDistance = haversine(markerCoords, targetCoords, { unit: 'meter' });
       setShowMarker(true);
       setDistance(calculatedDistance);
-      //alert(`El objetivo está a una distancia de ${Math.round(calculatedDistance)} metros`);
       setCheckButtonTrigger(false);
       setNextButton(true);
       setExitButton(true);
-      //setQuestionNumber(questionNumber+1);
-    } else {
-      //alert("Coloca un marcador en el mapa antes de verificar.");
+
+      // Animación del score
+      const scoreIncrease = calculatedDistance;
+      setScore(prevScore => prevScore + scoreIncrease);
+
+      let currentScore = displayedScore;
+      const increment = scoreIncrease / 50; // Divídelo en 50 pasos para una animación suave
+      const interval = setInterval(() => {
+        currentScore += increment;
+        if (currentScore >= score + scoreIncrease) {
+          clearInterval(interval);
+          setDisplayedScore(score + scoreIncrease); // Muestra el puntaje final exacto
+        } else {
+          setDisplayedScore(currentScore); // Actualiza el puntaje mostrado de manera gradual
+        }
+      }, 20); // Tiempo entre pasos (20 ms para una animación rápida)
+
+      // Aquí ajustamos la vista del mapa para que se vean ambos puntos
+      setRegion({
+        latitude: (markerCoords.latitude + targetCoords.latitude) / 2, // Promedio de las latitudes
+        longitude: (markerCoords.longitude + targetCoords.longitude) / 2, // Promedio de las longitudes
+        latitudeDelta: (markerCoords.latitude + targetCoords.latitude)+50,
+        longitudeDelta: (markerCoords.latitude + targetCoords.latitude)+50,
+      });
     }
-    
   };
 
-  const handleExitButtonPress = () =>{
-    navigation.navigate('Home'); // Navega a la pantalla de inicio
+  const handleExitButtonPress = () => {
+    navigation.navigate('Home');
     setExitButton(false);
   };
 
   const handleMapPress = (event) => {
-    // Actualiza las coordenadas del marcador con la ubicación donde se pulsó el mapa
-    if(checkButtonTrigger){
+    if (checkButtonTrigger) {
       const { latitude, longitude } = event.nativeEvent.coordinate;
       setMarkerCoords({ latitude, longitude });
     }
-    
   };
 
-  const handleNextButtonPress = () =>{
-    //Siguiente pregunta y hacer reset a todos los mierdas
+  const handleNextButtonPress = () => {
     setCheckButtonTrigger(true);
     setExitButton(false);
     setNextButton(false);
     setShowMarker(false);
-    setQuestionNumber(questionNumber+1);
-    console.log(questionNumber);
-    setTargetCoords(questionsData[questionNumber+1]?.loc);
-    setScore(score+distance);
+    setQuestionNumber(questionNumber + 1);
+    setTargetCoords(questionsData[questionNumber + 1]?.loc);
     setMarkerCoords(null);
-    if((questionNumber+1)===questionsData.length){
+
+    if ((questionNumber + 1) === questionsData.length) {
       goToScoreScreen();
     }
   };
-  const goToScoreScreen = () =>{
-    navigation.navigate('Score',{score,distance}); // Navega a la pantalla de inicio
+
+  const goToScoreScreen = async () => {
+    // Guardar la puntuación en Firebase antes de ir a ScoreScreen
+    try {
+      await addDoc(collection(db, 'players'), { // Aquí estamos guardando el nombre y la puntuación
+        name: userName,
+        bestScore: score,
+      });
+    } catch (error) {
+      console.error("Error saving score: ", error);
+    }
+    navigation.navigate('Score', { score });
   };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const questionsCollection = collection(db, 'quests'); // Cambia 'questions' al nombre de tu colección
+        const questionsCollection = collection(db, 'quests');
         const snapshot = await getDocs(questionsCollection);
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setQuestionsData(data);
         setTotalQuestions(data.length);
-        //console.log(JSON.stringify(data));
-        setTargetCoords( data[questionNumber]?.loc);
+        setTargetCoords(data[questionNumber]?.loc);
       } catch (error) {
         console.error("Error fetching data from Firestore: ", error);
       }
     };
     fetchData();
-    
   }, []);
-
 
   return (
     <View style={styles.container}>
-     <Text style={styles.title}>GeoGuessr</Text>
-     <Text style={styles.progress}>{questionNumber+1}/{totalQuestions}</Text>
-      
-        <MapView
+      <Text style={styles.title}>GeoGuessr</Text>
+      <Text style={styles.progress}>{questionNumber + 1}/{totalQuestions}</Text>
+
+      <MapView
         style={styles.map}
         mapType="satellite"
         initialRegion={{
@@ -113,57 +127,50 @@ const GameScreen = () => {
           latitudeDelta: 0.5,
           longitudeDelta: 0.5,
         }}
+        region={region} // Usamos la nueva variable de estado para la región
         onPress={handleMapPress}
-        >
-        {showmarker &&(
-          <Marker coordinate={{latitude:targetCoords.latitude, longitude:targetCoords.longitude}} pinColor="green" />
+      >
+        {showmarker && (
+          <Marker coordinate={{ latitude: targetCoords.latitude, longitude: targetCoords.longitude }} pinColor="green" />
         )}
-        
-        
         {markerCoords && (
           <Marker coordinate={markerCoords} pinColor="red" />
         )}
-
         {showmarker && (
           <Polyline
-            coordinates={[{latitude:targetCoords.latitude, longitude:targetCoords.longitude}, markerCoords]}
+            coordinates={[{ latitude: targetCoords.latitude, longitude: targetCoords.longitude }, markerCoords]}
             strokeColor="#32CD32"
             strokeWidth={2}
           />
         )}
       </MapView>
       <Text style={styles.question}>{questionsData[questionNumber]?.pregunta}</Text>
-     
 
       <View style={styles.buttonsrow}>
-      
-      {exitButton && (
-      <TouchableOpacity style={styles.exitButton} onPress={handleExitButtonPress}>
-        <Text style={styles.exitButtonText}>Exit</Text>
-      </TouchableOpacity>
-      )}
-
-
-      {checkButtonTrigger && (
-      <TouchableOpacity style={styles.checkButton} onPress={handleCheckPress}>
-        <Text style={styles.checkButtonText}>Check</Text>
-      </TouchableOpacity>
-      )}
-        
-      {nextButton && (
-      <TouchableOpacity style={styles.nextButton} onPress={handleNextButtonPress}>
-        <Text style={styles.nextButtonText}>Next</Text>
-      </TouchableOpacity>
-      )}
+        {exitButton && (
+          <TouchableOpacity style={styles.exitButton} onPress={handleExitButtonPress}>
+            <Text style={styles.exitButtonText}>Exit</Text>
+          </TouchableOpacity>
+        )}
+        {checkButtonTrigger && (
+          <TouchableOpacity style={styles.checkButton} onPress={handleCheckPress}>
+            <Text style={styles.checkButtonText}>Check</Text>
+          </TouchableOpacity>
+        )}
+        {nextButton && (
+          <TouchableOpacity style={styles.nextButton} onPress={handleNextButtonPress}>
+            <Text style={styles.nextButtonText}>Next</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {distance && (
+      {distance && !checkButtonTrigger && (
         <Text style={styles.distanceText}>
           L'objectiu esta a una distancia de {Math.round(distance)} metres
         </Text>
       )}
       <Text style={styles.score}>
-          Score: {score.toFixed(0)}
+        Score: {Math.round(displayedScore)}
       </Text>
     </View>
   );
@@ -177,19 +184,19 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   buttonsrow: {
-    flexDirection: 'row', // Organiza los botones en una fila
-    justifyContent: 'space-between', // Espacia los botones de manera uniforme
-    width: '70%', // Ajusta el ancho según tus necesidades
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    width: '80%',
     alignItems: 'center',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#32CD32', // Verde brillante para el título
+    color: '#32CD32',
   },
   progress: {
     fontSize: 20,
-    color: '#32CD32', // Verde brillante para el progreso
+    color: '#32CD32',
     marginBottom: 20,
   },
   map: {
@@ -204,7 +211,7 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   exitButton: {
-    backgroundColor: '#32CD32', // Verde para el botón
+    backgroundColor: '#32CD32',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -216,9 +223,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   checkButton: {
-    backgroundColor: '#32CD32', // Verde para el botón
+    backgroundColor: '#32CD32',
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 40,
     borderRadius: 8,
     marginTop: 10,
   },
@@ -228,7 +235,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   nextButton: {
-    backgroundColor: '#32CD32', // Verde para el botón
+    backgroundColor: '#32CD32',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -248,7 +255,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     marginTop: 50,
-    marginLeft:-175,
+    marginLeft: -175,
   },
 });
 
