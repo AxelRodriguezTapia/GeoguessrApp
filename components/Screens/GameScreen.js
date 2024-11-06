@@ -52,8 +52,8 @@ const GameScreen = ({ route }) => {
       setRegion({
         latitude: (markerCoords.latitude + targetCoords.latitude) / 2, // Promedio de las latitudes
         longitude: (markerCoords.longitude + targetCoords.longitude) / 2, // Promedio de las longitudes
-        latitudeDelta: (markerCoords.latitude + targetCoords.latitude)+50,
-        longitudeDelta: (markerCoords.latitude + targetCoords.latitude)+50,
+        latitudeDelta: (markerCoords.latitude + targetCoords.latitude),
+        longitudeDelta: (markerCoords.latitude + targetCoords.latitude),
       });
     }
   };
