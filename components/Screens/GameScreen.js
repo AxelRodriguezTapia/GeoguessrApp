@@ -193,6 +193,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: '#32CD32',
+    marginTop:20,
   },
   progress: {
     fontSize: 20,
